@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WarEra Crafting Cost Calculator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 30px; }
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+        .subtitle { color: #888; font-size: 1.1rem; }
+        .prices-panel {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .prices-panel h2 { color: #e94560; margin-bottom: 15px; font-size: 1.3rem; }
+        .prices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+        .price-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: transform 0.2s;
+        }
+        .price-card:hover { transform: translateY(-2px); }
+        .price-card .item-name {
+            font-weight: 600; color: #fff; margin-bottom: 5px;
+            text-transform: uppercase; font-size: 0.85rem;
+        }
+        .price-card .price { font-size: 1.6rem; font-weight: 700; color: #4ecca3; }
+        .price-card .price.loading { color: #666; }
+        .price-card .unit { font-size: 0.75rem; color: #888; }
+        .status-bar {
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+        }
+        .status { display: flex; align-items: center; gap: 8px; }
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #4ecca3; animation: pulse 2s infinite;
+        }
+        .status-dot.error { background: #e94560; animation: none; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .refresh-btn {
+            background: rgba(233,69,96,0.2); border: 1px solid #e94560;
+            color: #e94560; padding: 8px 16px; border-radius: 6px;
+            cursor: pointer; font-size: 0.9rem; transition: all 0.2s;
+        }
+        .refresh-btn:hover { background: #e94560; color: #fff; }
+        .category-section { margin-bottom: 30px; }
+        .category-title {
+            font-size: 1.4rem; color: #ff6b6b; margin-bottom: 15px;
+            padding-bottom: 8px; border-bottom: 2px solid rgba(255,107,107,0.3);
+            display: flex; align-items: center; gap: 10px;
+        }
+        table {
+            width: 100%; border-collapse: collapse;
+            background: rgba(255,255,255,0.03); border-radius: 12px; overflow: hidden;
+        }
+        thead th {
+            background: rgba(233,69,96,0.2); color: #e94560;
+            padding: 12px 15px; text-align: left; font-weight: 600;
+            font-size: 0.85rem; text-transform: uppercase;
+        }
+        tbody td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        tbody tr:hover { background: rgba(255,255,255,0.05); }
+        .rarity-common { color: #aaa; }
+        .rarity-uncommon { color: #4ecca3; }
+        .rarity-rare { color: #3498db; }
+        .rarity-epic { color: #9b59b6; }
+        .rarity-legendary { color: #f39c12; }
+        .rarity-mythic { color: #e94560; }
+        .item-code {
+            font-family: 'Courier New', monospace;
+            background: rgba(0,0,0,0.3); padding: 2px 8px;
+            border-radius: 4px; font-size: 0.85rem;
+        }
+        .cost-cell { font-weight: 600; }
+        .total-cost { color: #4ecca3; font-size: 1.05rem; }
+        .profit-positive { color: #4ecca3; }
+        .profit-negative { color: #e94560; }
+        .footer {
+            text-align: center; margin-top: 40px; color: #666; font-size: 0.9rem;
+        }
+        .footer a { color: #e94560; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+        .error-msg {
+            background: rgba(233,69,96,0.2); border: 1px solid #e94560;
+            border-radius: 8px; padding: 15px; text-align: center;
+            margin: 20px 0; display: none;
+        }
+        .tabs {
+            display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
+        }
+        .tab {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            color: #888; padding: 10px 20px; border-radius: 8px;
+            cursor: pointer; transition: all 0.2s; font-size: 0.95rem;
+        }
+        .tab.active { background: rgba(233,69,96,0.2); border-color: #e94560; color: #e94560; }
+        .tab:hover { border-color: #e94560; color: #fff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; }
+            .prices-grid { grid-template-columns: repeat(2, 1fr); }
+            table { font-size: 0.8rem; }
+            thead th, tbody td { padding: 8px 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>WarEra Crafting Cost Calculator</h1>
+            <p class="subtitle">Real-time production & crafting costs based on current market prices</p>
+        </header>
+
+        <div class="status-bar">
+            <div class="status">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Connecting to API...</span>
+            </div>
+            <button class="refresh-btn" onclick="fetchPrices()">Refresh Prices</button>
+        </div>
+
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="prices-panel">
+            <h2>Current Market Prices (per unit)</h2>
+            <div class="prices-grid" id="pricesGrid"></div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('production')">Production Chain</div>
+            <div class="tab" onclick="switchTab('equipment')">Equipment (Cases)</div>
+            <div class="tab" onclick="switchTab('ammo')">Ammo & Consumables</div>
+            <div class="tab" onclick="switchTab('upgrades')">Upgrades (Steel Cost)</div>
+        </div>
+
+        <div id="production" class="tab-content active">
+            <div class="category-section">
+                <h2 class="category-title">Production Chain Costs</h2>
+                <p style="color:#888;margin-bottom:15px;">Cost to produce items from raw materials at market prices</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Rarity</th>
+                            <th>Recipe</th>
+                            <th>Production Cost</th>
+                            <th>Market Price</th>
+                            <th>Profit/Loss</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productionBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="equipment" class="tab-content">
+            <div class="category-section">
+                <h2 class="category-title">Equipment from Cases</h2>
+                <p style="color:#888;margin-bottom:15px;">Equipment is obtained from loot cases (case1/case2) or purchased on the market</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Type</th>
+                            <th>Rarity</th>
+                            <th>Stats</th>
+                            <th>Case Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody id="equipmentBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="ammo" class="tab-content">
+            <div class="category-section">
+                <h2 class="category-title">Ammo & Consumables</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Rarity</th>
+                            <th>Recipe</th>
+                            <th>Production Cost</th>
+                            <th>Market Price</th>
+                            <th>Profit/Loss</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ammoBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="upgrades" class="tab-content">
+            <div class="category-section">
+                <h2 class="category-title">Upgrade Steel Costs</h2>
+                <p style="color:#888;margin-bottom:15px;">Steel required for each upgrade level</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Upgrade</th>
+                            <th>Level</th>
+                            <th>Steel Cost</th>
+                            <th>Steel Market Cost</th>
+                            <th>Other Requirements</th>
+                        </tr>
+                    </thead>
+                    <tbody id="upgradesBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Data fetched live from <a href="https://warera.io" target="_blank">WarEra.io</a> API</p>
+            <p>Prices update automatically every 60 seconds</p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://api2.warera.io/trpc/';
+        let allPrices = {};
+        let gameConfig = null;
+
+        const PRODUCTION_RECIPES = [
+            { code: 'steel', name: 'Steel', rarity: 'uncommon', needs: { iron: 10 }, points: 10 },
+            { code: 'concrete', name: 'Concrete', rarity: 'uncommon', needs: { limestone: 10 }, points: 10 },
+            { code: 'bread', name: 'Bread', rarity: 'uncommon', needs: { grain: 10 }, points: 10 },
+            { code: 'steak', name: 'Steak', rarity: 'rare', needs: { livestock: 1 }, points: 20 },
+            { code: 'cookedFish', name: 'Cooked Fish', rarity: 'epic', needs: { fish: 1 }, points: 40 },
+            { code: 'oil', name: 'Oil', rarity: 'uncommon', needs: { petroleum: 1 }, points: 1 },
+        ];
+
+        const AMMO_RECIPES = [
+            { code: 'lightAmmo', name: 'Light Ammo', rarity: 'uncommon', needs: { lead: 1 }, points: 1 },
+            { code: 'ammo', name: 'Ammo', rarity: 'rare', needs: { lead: 4 }, points: 4 },
+            { code: 'heavyAmmo', name: 'Heavy Ammo', rarity: 'epic', needs: { lead: 16 }, points: 16 },
+            { code: 'cocain', name: 'Cocain', rarity: 'epic', needs: { coca: 200 }, points: 200 },
+        ];
+
+        const EQUIPMENT = [
+            { code: 'knife', name: 'Knife', type: 'weapon', rarity: 'common', stats: 'ATK 21-40, CC 1-5%' },
+            { code: 'gun', name: 'Gun', type: 'weapon', rarity: 'uncommon', stats: 'ATK 51-60, CC 6-10%' },
+            { code: 'rifle', name: 'Rifle', type: 'weapon', rarity: 'rare', stats: 'ATK 71-90, CC 11-15%' },
+            { code: 'sniper', name: 'Sniper', type: 'weapon', rarity: 'epic', stats: 'ATK 101-130, CC 16-20%' },
+            { code: 'tank', name: 'Tank', type: 'weapon', rarity: 'legendary', stats: 'ATK 141-170, CC 26-35%' },
+            { code: 'jet', name: 'Jet', type: 'weapon', rarity: 'mythic', stats: 'ATK 221-300, CC 41-50%' },
+            { code: 'helmet1', name: 'Helmet T1', type: 'helmet', rarity: 'common', stats: 'CD 1-15' },
+            { code: 'helmet2', name: 'Helmet T2', type: 'helmet', rarity: 'uncommon', stats: 'CD 16-30' },
+            { code: 'helmet3', name: 'Helmet T3', type: 'helmet', rarity: 'rare', stats: 'CD 31-50' },
+            { code: 'helmet4', name: 'Helmet T4', type: 'helmet', rarity: 'epic', stats: 'CD 71-90' },
+            { code: 'helmet5', name: 'Helmet T5', type: 'helmet', rarity: 'legendary', stats: 'CD 91-110' },
+            { code: 'helmet6', name: 'Helmet T6', type: 'helmet', rarity: 'mythic', stats: 'CD 121-150' },
+            { code: 'chest1', name: 'Chest T1', type: 'chest', rarity: 'common', stats: 'ARM 1-15' },
+            { code: 'chest2', name: 'Chest T2', type: 'chest', rarity: 'uncommon', stats: 'ARM 16-30' },
+            { code: 'chest3', name: 'Chest T3', type: 'chest', rarity: 'rare', stats: 'ARM 31-50' },
+            { code: 'chest4', name: 'Chest T4', type: 'chest', rarity: 'epic', stats: 'ARM 71-90' },
+            { code: 'chest5', name: 'Chest T5', type: 'chest', rarity: 'legendary', stats: 'ARM 91-110' },
+            { code: 'chest6', name: 'Chest T6', type: 'chest', rarity: 'mythic', stats: 'ARM 121-150' },
+            { code: 'pants1', name: 'Pants T1', type: 'pants', rarity: 'common', stats: 'ARM 1-15' },
+            { code: 'pants2', name: 'Pants T2', type: 'pants', rarity: 'uncommon', stats: 'ARM 16-30' },
+            { code: 'pants3', name: 'Pants T3', type: 'pants', rarity: 'rare', stats: 'ARM 31-50' },
+            { code: 'pants4', name: 'Pants T4', type: 'pants', rarity: 'epic', stats: 'ARM 71-90' },
+            { code: 'pants5', name: 'Pants T5', type: 'pants', rarity: 'legendary', stats: 'ARM 91-110' },
+            { code: 'pants6', name: 'Pants T6', type: 'pants', rarity: 'mythic', stats: 'ARM 121-150' },
+            { code: 'boots1', name: 'Boots T1', type: 'boots', rarity: 'common', stats: 'DDG 1-15' },
+            { code: 'boots2', name: 'Boots T2', type: 'boots', rarity: 'uncommon', stats: 'DDG 16-30' },
+            { code: 'boots3', name: 'Boots T3', type: 'boots', rarity: 'rare', stats: 'DDG 31-50' },
+            { code: 'boots4', name: 'Boots T4', type: 'boots', rarity: 'epic', stats: 'DDG 71-90' },
+            { code: 'boots5', name: 'Boots T5', type: 'boots', rarity: 'legendary', stats: 'DDG 91-110' },
+            { code: 'boots6', name: 'Boots T6', type: 'boots', rarity: 'mythic', stats: 'DDG 121-150' },
+            { code: 'gloves1', name: 'Gloves T1', type: 'gloves', rarity: 'common', stats: 'PRC 1-15' },
+            { code: 'gloves2', name: 'Gloves T2', type: 'gloves', rarity: 'uncommon', stats: 'PRC 16-30' },
+            { code: 'gloves3', name: 'Gloves T3', type: 'gloves', rarity: 'rare', stats: 'PRC 31-50' },
+            { code: 'gloves4', name: 'Gloves T4', type: 'gloves', rarity: 'epic', stats: 'PRC 71-90' },
+            { code: 'gloves5', name: 'Gloves T5', type: 'gloves', rarity: 'legendary', stats: 'PRC 91-110' },
+            { code: 'gloves6', name: 'Gloves T6', type: 'gloves', rarity: 'mythic', stats: 'PRC 121-150' },
+        ];
+
+        const UPGRADES = [
+            { name: 'Storage', levels: [
+                { level: 1, steel: 50, extra: '300 construction points' },
+                { level: 2, steel: 100, extra: '600 construction points' },
+                { level: 3, steel: 200, extra: '1200 construction points' },
+                { level: 4, steel: 400, extra: '2400 construction points' },
+                { level: 5, steel: 800, extra: '4800 construction points' },
+                { level: 6, steel: 1600, extra: '9600 construction points' },
+                { level: 7, steel: 3200, extra: '19200 construction points' },
+            ]},
+            { name: 'Automated Engine', levels: [
+                { level: 1, steel: 100, extra: '300 construction points' },
+                { level: 2, steel: 200, extra: '600 construction points' },
+                { level: 3, steel: 400, extra: '1200 construction points' },
+                { level: 4, steel: 800, extra: '2400 construction points' },
+                { level: 5, steel: 1600, extra: '4800 construction points' },
+                { level: 6, steel: 3200, extra: '9600 construction points' },
+                { level: 7, steel: 6400, extra: '19200 construction points' },
+            ]},
+            { name: 'Break Room', levels: [
+                { level: 1, steel: 30, extra: '-' },
+                { level: 2, steel: 60, extra: '-' },
+                { level: 3, steel: 120, extra: '-' },
+                { level: 4, steel: 240, extra: '-' },
+                { level: 5, steel: 480, extra: '-' },
+            ]},
+            { name: 'Bunker', levels: [
+                { level: 1, steel: 100, extra: '500 construction points' },
+                { level: 2, steel: 200, extra: '1000 construction points' },
+                { level: 3, steel: 400, extra: '2000 construction points' },
+                { level: 4, steel: 800, extra: '4000 construction points' },
+                { level: 5, steel: 1600, extra: '8000 construction points' },
+            ]},
+            { name: 'Base', levels: [
+                { level: 1, steel: 100, extra: '500 construction points' },
+                { level: 2, steel: 200, extra: '1000 construction points' },
+                { level: 3, steel: 400, extra: '2000 construction points' },
+                { level: 4, steel: 800, extra: '4000 construction points' },
+                { level: 5, steel: 1600, extra: '8000 construction points' },
+            ]},
+            { name: 'Headquarters', levels: [
+                { level: 1, steel: 150, extra: '-' },
+                { level: 2, steel: 300, extra: '-' },
+                { level: 3, steel: 600, extra: '-' },
+                { level: 4, steel: 1200, extra: '-' },
+            ]},
+            { name: 'Dormitories', levels: [
+                { level: 1, steel: 50, extra: '-' },
+                { level: 2, steel: 100, extra: '-' },
+                { level: 3, steel: 200, extra: '-' },
+                { level: 4, steel: 400, extra: '-' },
+                { level: 5, steel: 800, extra: '-' },
+            ]},
+            { name: 'Pacification Center', levels: [
+                { level: 1, steel: 100, extra: '500 construction points' },
+                { level: 2, steel: 200, extra: '1000 construction points' },
+                { level: 3, steel: 400, extra: '2000 construction points' },
+                { level: 4, steel: 800, extra: '4000 construction points' },
+                { level: 5, steel: 1600, extra: '8000 construction points' },
+            ]},
+        ];
+
+        function formatNum(n) { return n.toFixed(2); }
+
+        function calcRecipeCost(needs) {
+            let total = 0;
+            for (const [item, qty] of Object.entries(needs)) {
+                total += (allPrices[item] || 0) * qty;
+            }
+            return total;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        function updatePricesGrid() {
+            const grid = document.getElementById('pricesGrid');
+            const displayItems = ['steel','scraps','iron','lead','limestone','concrete','grain','petroleum','oil','livestock','fish','coca'];
+            grid.innerHTML = displayItems.map(item => `
+                <div class="price-card">
+                    <div class="item-name">${item}</div>
+                    <div class="price">${formatNum(allPrices[item] || 0)}</div>
+                    <div class="unit">CC per unit</div>
+                </div>
+            `).join('');
+        }
+
+        function updateProductionTable() {
+            const body = document.getElementById('productionBody');
+            body.innerHTML = PRODUCTION_RECIPES.map(r => {
+                const cost = calcRecipeCost(r.needs);
+                const price = allPrices[r.code] || 0;
+                const profit = price - cost;
+                const recipeStr = Object.entries(r.needs).map(([k,v]) => `${v} ${k}`).join(' + ');
+                return `<tr>
+                    <td><span class="item-code">${r.code}</span> ${r.name}</td>
+                    <td><span class="rarity-${r.rarity}">${r.rarity}</span></td>
+                    <td>${recipeStr}</td>
+                    <td class="cost-cell">${formatNum(cost)} CC</td>
+                    <td class="cost-cell">${formatNum(price)} CC</td>
+                    <td class="${profit >= 0 ? 'profit-positive' : 'profit-negative'}">${profit >= 0 ? '+' : ''}${formatNum(profit)} CC</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function updateAmmoTable() {
+            const body = document.getElementById('ammoBody');
+            body.innerHTML = AMMO_RECIPES.map(r => {
+                const cost = calcRecipeCost(r.needs);
+                const price = allPrices[r.code] || 0;
+                const profit = price - cost;
+                const recipeStr = Object.entries(r.needs).map(([k,v]) => `${v} ${k}`).join(' + ');
+                return `<tr>
+                    <td><span class="item-code">${r.code}</span> ${r.name}</td>
+                    <td><span class="rarity-${r.rarity}">${r.rarity}</span></td>
+                    <td>${recipeStr}</td>
+                    <td class="cost-cell">${formatNum(cost)} CC</td>
+                    <td class="cost-cell">${formatNum(price)} CC</td>
+                    <td class="${profit >= 0 ? 'profit-positive' : 'profit-negative'}">${profit >= 0 ? '+' : ''}${formatNum(profit)} CC</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function updateEquipmentTable() {
+            const body = document.getElementById('equipmentBody');
+            const casePrice = allPrices.case1 || 0;
+            body.innerHTML = EQUIPMENT.map(e => `
+                <tr>
+                    <td><span class="item-code">${e.code}</span> ${e.name}</td>
+                    <td>${e.type}</td>
+                    <td><span class="rarity-${e.rarity}">${e.rarity}</span></td>
+                    <td>${e.stats}</td>
+                    <td class="cost-cell">${formatNum(casePrice)} CC (case1)</td>
+                </tr>
+            `).join('');
+        }
+
+        function updateUpgradesTable() {
+            const body = document.getElementById('upgradesBody');
+            const steelPrice = allPrices.steel || 0;
+            body.innerHTML = UPGRADES.map(u => 
+                u.levels.map((l, i) => `
+                    <tr>
+                        <td>${i === 0 ? u.name : ''}</td>
+                        <td>Level ${l.level}</td>
+                        <td class="cost-cell">${l.steel} steel</td>
+                        <td class="total-cost">${formatNum(l.steel * steelPrice)} CC</td>
+                        <td>${l.extra}</td>
+                    </tr>
+                `).join('')
+            ).join('');
+        }
+
+        function setStatus(online, msg) {
+            document.getElementById('statusDot').className = 'status-dot' + (online ? '' : ' error');
+            document.getElementById('statusText').textContent = msg;
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+
+        async function fetchPrices() {
+            try {
+                const resp = await fetch(API_URL + 'itemTrading.getPrices');
+                if (!resp.ok) throw new Error('API error');
+                const data = await resp.json();
+                allPrices = data.result?.data || {};
+                updatePricesGrid();
+                updateProductionTable();
+                updateAmmoTable();
+                updateEquipmentTable();
+                updateUpgradesTable();
+                setStatus(true, `Live - Last updated: ${new Date().toLocaleTimeString()}`);
+            } catch (e) {
+                console.error(e);
+                setStatus(false, 'API connection failed');
+                showError('Failed to fetch prices. Retrying...');
+            }
+        }
+
+        fetchPrices();
+        setInterval(fetchPrices, 60000);
+    </script>
+</body>
+</html>
